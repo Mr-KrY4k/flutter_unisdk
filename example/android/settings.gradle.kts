@@ -14,7 +14,13 @@ pluginManagement {
         google()
         mavenCentral()
         gradlePluginPortal()
+    
+    resolutionStrategy {
+        eachPlugin {
+        
+}
     }
+
 }
 
 plugins {

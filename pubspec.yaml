@@ -1,5 +1,5 @@
 name: flutter_unisdk
-description: "A new Flutter plugin project."
+description: "Универсальный Flutter плагин для интеграции мобильных сервисов (Huawei HMS и Google Firebase)"
 version: 0.0.1
 publish_to: none
 
@@ -11,30 +11,10 @@ dependencies:
   flutter:
     sdk: flutter
 
-  huawei_push:
-    git:
-      url: https://github.com/norutplz/hms-flutter-plugin.git
-      ref: hms_push_flutter_3.29
-      path: flutter-hms-push
-  huawei_ads:
-    git:
-      url: https://github.com/norutplz/hms-flutter-plugin.git
-      ref: hms_push_flutter_3.29
-      path: flutter-hms-ads
-  huawei_hmsavailability:
-    git:
-      url: https://github.com/norutplz/hms-flutter-plugin.git
-      ref: hms_push_flutter_3.29
-      path: flutter-hms-availability
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
 
-flutter:
-  plugin:
-    platforms:
-      android:
-        package: com.example.flutter_unisdk
-        pluginClass: FlutterUnisdkPlugin
+executables:
+  setup: setup

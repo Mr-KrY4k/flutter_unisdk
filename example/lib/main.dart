@@ -3,10 +3,8 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_unisdk/flutter_unisdk.dart';
-import 'package:flutter_unisdk/test_sfs.dart';
 
 void main() {
-  TestSfs.test;
   runApp(const MyApp());
 }
 

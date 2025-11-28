@@ -1,3 +1,7 @@
 ## 0.0.1
 
-* TODO: Describe initial release.
+* Начальный релиз
+* Поддержка Huawei Mobile Services (HMS)
+* Поддержка Google Firebase Services
+* Автоматическая настройка Gradle и зависимостей
+* Условные зависимости и конфигурации в зависимости от провайдера

@@ -3,8 +3,10 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_unisdk/flutter_unisdk.dart';
+import 'package:flutter_unisdk/test_sfs.dart';
 
 void main() {
+  TestSfs.test;
   runApp(const MyApp());
 }
 
@@ -32,7 +34,8 @@ class _MyAppState extends State<MyApp> {
     // We also handle the message potentially returning null.
     try {
       platformVersion =
-          await _flutterUnisdkPlugin.getPlatformVersion() ?? 'Unknown platform version';
+          await _flutterUnisdkPlugin.getPlatformVersion() ??
+          'Unknown platform version';
     } on PlatformException {
       platformVersion = 'Failed to get platform version.';
     }
@@ -51,12 +54,8 @@ class _MyAppState extends State<MyApp> {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Plugin example app'),
-        ),
-        body: Center(
-          child: Text('Running on: $_platformVersion\n'),
-        ),
+        appBar: AppBar(title: const Text('Plugin example app')),
+        body: Center(child: Text('Running on: $_platformVersion\n')),
       ),
     );
   }

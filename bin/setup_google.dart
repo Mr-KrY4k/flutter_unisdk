@@ -17,17 +17,14 @@ void setupGoogleForProject(String projectPath) {
   cleanAndroidProject(androidPath);
   cleanPubspec(projectPath);
 
-  // Устанавливаем провайдер в gradle.properties плагина
-  setProviderInPlugin('google');
-
   // Настраиваем Gradle в проекте
   setupGoogleGradle(androidPath);
 
   // Настраиваем AndroidManifest для Firebase
   setupGoogleManifest(androidPath);
 
-  // Добавляем зависимости в pubspec.yaml
-  setupGooglePubspec(projectPath);
+  // Переносим зависимости из плагина в приложение
+  transferDependenciesToProject(projectPath, 'google');
 }
 
 void setupGoogleGradle(String androidPath) {
@@ -489,103 +486,4 @@ buildTypes {
 
   buildFile.writeAsStringSync(buffer.toString());
   print('✅ Добавлен блок buildTypes для Google в app/build.gradle.kts');
-}
-
-void setupGooglePubspec(String projectPath) {
-  final pubspecFile = File('$projectPath/pubspec.yaml');
-  if (!pubspecFile.existsSync()) {
-    print(
-      '⚠️  Предупреждение: pubspec.yaml не найден по пути: ${pubspecFile.path}, пропускаю...',
-    );
-    return;
-  }
-
-  final lines = pubspecFile.readAsLinesSync();
-
-  // Google Firebase зависимости (с фиксированными минимальными версиями)
-  final depsToEnsure = <String, String>{
-    'firebase_core': '  firebase_core: ^4.0.0',
-    'firebase_remote_config': '  firebase_remote_config: ^6.0.0',
-    'firebase_messaging': '  firebase_messaging: ^16.0.0',
-    'firebase_analytics': '  firebase_analytics: ^12.0.0',
-    'firebase_crashlytics': '  firebase_crashlytics: ^5.0.0',
-  };
-
-  bool changed = false;
-
-  // Находим индекс блока dependencies
-  int depsIndex = lines.indexWhere(
-    (l) => l.trimLeft().startsWith('dependencies:'),
-  );
-
-  if (depsIndex == -1) {
-    // Если dependencies нет, создаём его после environment:
-    final envIndex = lines.indexWhere(
-      (l) => l.trimLeft().startsWith('environment:'),
-    );
-    if (envIndex != -1) {
-      final insertAt = envIndex + 1;
-      lines.insert(insertAt, '');
-      lines.insert(insertAt + 1, 'dependencies:');
-      depsIndex = insertAt + 1;
-      changed = true;
-      print('✅ Создан блок dependencies в pubspec.yaml');
-    } else {
-      print(
-        '⚠️  Не удалось найти секцию environment в pubspec.yaml, пропускаю добавление зависимостей',
-      );
-      return;
-    }
-  }
-
-  // Определяем место вставки внутри блока dependencies:
-  // идём вниз от строки `dependencies:` пока строки начинаются с двух пробелов
-  int insertIndex = depsIndex + 1;
-  while (insertIndex < lines.length) {
-    final line = lines[insertIndex];
-    if (line.startsWith('  ') && line.trim().isNotEmpty) {
-      insertIndex++;
-      continue;
-    }
-    break;
-  }
-
-  // Для каждого dep добавляем или обновляем строку с версией
-  for (final entry in depsToEnsure.entries) {
-    final dep = entry.key;
-    final depLine = entry.value;
-
-    // Ищем существующую строку для этой зависимости
-    final existingIndex = lines.indexWhere(
-      (l) => l.trimLeft().startsWith('$dep:'),
-    );
-
-    if (existingIndex != -1) {
-      final current = lines[existingIndex].trimRight();
-      if (current != depLine) {
-        // Обновляем до нужной версии
-        lines[existingIndex] = depLine;
-        changed = true;
-        print('✅ Обновлена зависимость $dep до: $depLine');
-      } else {
-        print('ℹ️  Зависимость $dep уже имеет нужную версию в pubspec.yaml');
-      }
-      continue;
-    }
-
-    // Строки ещё нет — добавляем новую
-    lines.insert(insertIndex, depLine);
-    insertIndex++;
-    changed = true;
-    print('✅ Добавлена зависимость $dep в pubspec.yaml');
-  }
-
-  if (changed) {
-    pubspecFile.writeAsStringSync(lines.join('\n'));
-    print('✅ pubspec.yaml обновлён для Google Firebase');
-  } else {
-    print(
-      'ℹ️  pubspec.yaml уже содержит все зависимости Google Firebase, изменений не требуется',
-    );
-  }
 }

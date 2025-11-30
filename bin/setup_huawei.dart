@@ -43,17 +43,14 @@ void setupHuaweiForProject(String projectPath) {
   cleanAndroidProject(androidPath);
   cleanPubspec(projectPath);
 
-  // Устанавливаем провайдер в gradle.properties плагина
-  setProviderInPlugin('huawei');
-
   // Настраиваем Gradle в проекте
   setupHuaweiGradle(androidPath);
 
   // Добавляем ProGuard правила Huawei в приложение
   setupHuaweiProguard(androidPath);
 
-  // Добавляем зависимости в pubspec.yaml
-  setupHuaweiPubspec(projectPath);
+  // Переносим зависимости из плагина в приложение
+  transferDependenciesToProject(projectPath, 'huawei');
 }
 
 void setupHuaweiGradle(String androidPath) {
@@ -74,8 +71,9 @@ void setupHuaweiGradle(String androidPath) {
     // Если repositories нет – создаём его сразу после includeBuild или в начале pluginManagement
     if (reposIndex == -1) {
       final insertAfter = content.indexOf('includeBuild', pmIndex);
-      final insertPos =
-          insertAfter != -1 ? content.indexOf('\n', insertAfter) + 1 : pmIndex;
+      final insertPos = insertAfter != -1
+          ? content.indexOf('\n', insertAfter) + 1
+          : pmIndex;
 
       const reposBlock = '''
     repositories {
@@ -83,11 +81,14 @@ void setupHuaweiGradle(String androidPath) {
     }
 ''';
 
-      content = content.substring(0, insertPos) +
+      content =
+          content.substring(0, insertPos) +
           reposBlock +
           content.substring(insertPos);
       changed = true;
-      print('✅ Создан блок repositories с Huawei репозиторием в settings.gradle.kts');
+      print(
+        '✅ Создан блок repositories с Huawei репозиторием в settings.gradle.kts',
+      );
     } else if (!content.contains('developer.huawei.com/repo')) {
       // repositories есть – добавляем внутрь только нашу строку maven { ... }
       int braceLevel = 0;
@@ -149,7 +150,8 @@ void setupHuaweiGradle(String androidPath) {
         }
     }
 ''';
-          content = content.substring(0, insertPos) +
+          content =
+              content.substring(0, insertPos) +
               rsBlock +
               content.substring(insertPos);
           changed = true;
@@ -198,9 +200,12 @@ void setupHuaweiGradle(String androidPath) {
           // Вставляем eachBlock после открывающей скобки resolutionStrategy
           body = body.replaceFirst(RegExp(r'\{'), '{\n$eachBlock');
           changed = true;
-          print('✅ Создан блок eachPlugin с Huawei правилом в settings.gradle.kts');
+          print(
+            '✅ Создан блок eachPlugin с Huawei правилом в settings.gradle.kts',
+          );
         } else if (!body.contains(
-            'useModule("com.huawei.agconnect:agcp:1.9.1.303")')) {
+          'useModule("com.huawei.agconnect:agcp:1.9.1.303")',
+        )) {
           // eachPlugin есть, но нет нашего if – добавляем только его
           final eachIndex = body.indexOf('eachPlugin');
           final eachBraceStart = body.indexOf('{', eachIndex);
@@ -225,7 +230,8 @@ void setupHuaweiGradle(String androidPath) {
             useModule("com.huawei.agconnect:agcp:1.9.1.303")
         }
 ''';
-            body = body.substring(0, eachEnd) +
+            body =
+                body.substring(0, eachEnd) +
                 '\n$ifBlock' +
                 body.substring(eachEnd);
             changed = true;
@@ -236,7 +242,8 @@ void setupHuaweiGradle(String androidPath) {
         }
 
         if (body != rsBody) {
-          content = content.substring(0, rsStartBrace) +
+          content =
+              content.substring(0, rsStartBrace) +
               body +
               content.substring(rsEnd + 1);
         }
@@ -361,26 +368,40 @@ buildscript {
   }
 
   // --- allprojects.repositories: Huawei repo ---
-  if (!content.contains('developer.huawei.com/repo')) {
-    final allProjectsIndex = content.indexOf('allprojects {');
-    if (allProjectsIndex != -1) {
-      final substring = content.substring(allProjectsIndex);
-      final reposIndexInSub = substring.indexOf('repositories {');
-      if (reposIndexInSub != -1) {
-        final reposStart = allProjectsIndex + reposIndexInSub;
-        final closingBraceRegex = RegExp(r'^\s*}\s*$', multiLine: true);
-        final match = closingBraceRegex.firstMatch(
-          content.substring(reposStart),
-        );
-        if (match != null) {
-          final closingIndex = reposStart + match.start;
+  final allProjectsIndex = content.indexOf('allprojects {');
+  if (allProjectsIndex != -1) {
+    final substring = content.substring(allProjectsIndex);
+    final reposIndexInSub = substring.indexOf('repositories {');
+    if (reposIndexInSub != -1) {
+      final reposStart = allProjectsIndex + reposIndexInSub;
+
+      // Находим конец блока repositories в allprojects
+      int braceLevel = 0;
+      int reposEnd = -1;
+      for (var i = reposStart; i < content.length; i++) {
+        final ch = content[i];
+        if (ch == '{') {
+          braceLevel++;
+        } else if (ch == '}') {
+          braceLevel--;
+          if (braceLevel == 0) {
+            reposEnd = i;
+            break;
+          }
+        }
+      }
+
+      if (reposEnd != -1) {
+        // Проверяем, есть ли уже Huawei репозиторий в этом блоке
+        final reposBlock = content.substring(reposStart, reposEnd + 1);
+        if (!reposBlock.contains('developer.huawei.com/repo')) {
           const huaweiRepoLine =
               '        maven(url = "https://developer.huawei.com/repo/")\n';
 
           final newContent = StringBuffer()
-            ..write(content.substring(0, closingIndex))
+            ..write(content.substring(0, reposEnd))
             ..write(huaweiRepoLine)
-            ..write(content.substring(closingIndex));
+            ..write(content.substring(reposEnd));
 
           content = newContent.toString();
           print(
@@ -389,8 +410,6 @@ buildscript {
         }
       }
     }
-  } else {
-    print('ℹ️  Huawei репозиторий уже присутствует в allprojects.repositories');
   }
 
   rootBuildKts.writeAsStringSync(content);
@@ -453,7 +472,9 @@ plugins {
 ''';
       content = pluginsBlock + content;
       changed = true;
-      print('✅ Создан блок plugins с com.huawei.agconnect в app/build.gradle.kts');
+      print(
+        '✅ Создан блок plugins с com.huawei.agconnect в app/build.gradle.kts',
+      );
     }
   } else {
     print(
@@ -752,95 +773,4 @@ dependencies {
   print(
     '✅ Добавлены зависимости play-services-location и installreferrer в app/build.gradle.kts',
   );
-}
-
-void setupHuaweiPubspec(String projectPath) {
-  final pubspecFile = File('$projectPath/pubspec.yaml');
-  if (!pubspecFile.existsSync()) {
-    print('⚠️  Предупреждение: pubspec.yaml не найден, пропускаю...');
-    return;
-  }
-
-  final lines = pubspecFile.readAsLinesSync();
-  bool changed = false;
-
-  // Находим индекс блока dependencies
-  int depsIndex = lines.indexWhere(
-    (l) => l.trimLeft().startsWith('dependencies:'),
-  );
-
-  if (depsIndex == -1) {
-    // Если dependencies нет, создаём его после environment:
-    final envIndex = lines.indexWhere(
-      (l) => l.trimLeft().startsWith('environment:'),
-    );
-    if (envIndex != -1) {
-      final insertAt = envIndex + 1;
-      lines.insert(insertAt, '');
-      lines.insert(insertAt + 1, 'dependencies:');
-      depsIndex = insertAt + 1;
-      changed = true;
-      print('✅ Создан блок dependencies в pubspec.yaml');
-    } else {
-      print(
-        '⚠️  Не удалось найти секцию environment в pubspec.yaml, пропускаю добавление Huawei зависимостей',
-      );
-      return;
-    }
-  }
-
-  // Определяем место вставки внутри блока dependencies:
-  // идём вниз от строки `dependencies:` пока строки начинаются с двух пробелов
-  int insertIndex = depsIndex + 1;
-  while (insertIndex < lines.length) {
-    final line = lines[insertIndex];
-    if (line.startsWith('  ') && line.trim().isNotEmpty) {
-      insertIndex++;
-      continue;
-    }
-    break;
-  }
-
-  // Определяем, какие зависимости уже есть
-  bool hasPush = lines.any((l) => l.trimLeft().startsWith('huawei_push:'));
-  bool hasAds = lines.any((l) => l.trimLeft().startsWith('huawei_ads:'));
-
-  // Добавляем недостающие блоки подряд (availability добавляем отдельно только
-  // при выборе "оба провайдера" в общем setup-скрипте)
-  final toInsert = <String>[];
-
-  if (!hasPush) {
-    toInsert.addAll(const [
-      '  huawei_push:',
-      '    git:',
-      '      url: https://github.com/norutplz/hms-flutter-plugin.git',
-      '      ref: hms_push_flutter_3.29',
-      '      path: flutter-hms-push',
-      '',
-    ]);
-    print('✅ Добавлена зависимость huawei_push в pubspec.yaml');
-    changed = true;
-  } else {
-    print('ℹ️  Зависимость huawei_push уже присутствует в pubspec.yaml');
-  }
-
-  if (!hasAds) {
-    toInsert.addAll(const [
-      '  huawei_ads:',
-      '    git:',
-      '      url: https://github.com/norutplz/hms-flutter-plugin.git',
-      '      ref: hms_push_flutter_3.29',
-      '      path: flutter-hms-ads',
-      '',
-    ]);
-    print('✅ Добавлена зависимость huawei_ads в pubspec.yaml');
-    changed = true;
-  } else {
-    print('ℹ️  Зависимость huawei_ads уже присутствует в pubspec.yaml');
-  }
-
-  if (changed && toInsert.isNotEmpty) {
-    lines.insertAll(insertIndex, toInsert);
-    pubspecFile.writeAsStringSync(lines.join('\n'));
-  }
 }

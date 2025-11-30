@@ -110,7 +110,7 @@ void setupHuaweiGradle(String androidPath) {
         final after = content.substring(endIndex);
         const huaweiRepoLine =
             '\n        maven { url = uri("https://developer.huawei.com/repo/") }';
-        content = '$before$huaweiRepoLine$after';
+        content = '$before$huaweiRepoLine\n$after';
         changed = true;
         print('✅ Добавлен Huawei репозиторий в settings.gradle.kts');
       }
@@ -155,6 +155,10 @@ void setupHuaweiGradle(String androidPath) {
           changed = true;
           print('✅ Создан блок resolutionStrategy в settings.gradle.kts');
           rsIndex = content.indexOf('resolutionStrategy', pmIndex);
+        } else {
+          print(
+            '⚠️  Не удалось найти конец блока repositories в settings.gradle.kts',
+          );
         }
       }
     }
@@ -191,7 +195,8 @@ void setupHuaweiGradle(String androidPath) {
         }
     }
 ''';
-          body = body.replaceFirst('{', '{\n$eachBlock');
+          // Вставляем eachBlock после открывающей скобки resolutionStrategy
+          body = body.replaceFirst(RegExp(r'\{'), '{\n$eachBlock');
           changed = true;
           print('✅ Создан блок eachPlugin с Huawei правилом в settings.gradle.kts');
         } else if (!body.contains(
